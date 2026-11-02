@@ -69,21 +69,21 @@ public final class MainActivity extends Activity {
         root.addView(title);
         LinearLayout controls = new LinearLayout(this);
         Button load=btn("Open plan", ()->pickPlan());
-        Button prev=btn("â—€", ()->{if(page>0){page--;render();}});
-        Button next=btn("â–¶", ()->{page++;render();});
-        Button photo=btn("ðŸ“· Photo", ()->capture());
+        Button prev=btn("<", ()->{if(page>0){page--;render();}});
+        Button next=btn(">", ()->{page++;render();});
+        Button photo=btn("Photo", ()->capture());
         controls.addView(load,new LinearLayout.LayoutParams(0,-2,2));
         controls.addView(prev,new LinearLayout.LayoutParams(0,-2,1));
         controls.addView(next,new LinearLayout.LayoutParams(0,-2,1));
         controls.addView(photo,new LinearLayout.LayoutParams(0,-2,2));
-        root.addView(controls);
         counterLabel = new TextView(this);
-        counterLabel.setTextSize(38);
+        counterLabel.setTextSize(27);
         counterLabel.setTextColor(Color.rgb(211,45,45));
         counterLabel.setGravity(Gravity.CENTER);
         counterLabel.setContentDescription("Survey counter. Volume up increases, volume down decreases. Long press to reset.");
         counterLabel.setOnLongClickListener(v->{counter=0;save();render();toast("Counter reset");return true;});
-        root.addView(counterLabel,new LinearLayout.LayoutParams(-1,-2));
+        controls.addView(counterLabel,new LinearLayout.LayoutParams(0,-1,1));
+        root.addView(controls);
         info = new TextView(this);
         root.addView(info);
         planView=new PlanView();
@@ -100,7 +100,7 @@ public final class MainActivity extends Activity {
         });
         root.addView(note);
         LinearLayout bottom=new LinearLayout(this);
-        bottom.addView(btn("ðŸŽ™ Dictate",()->dictate()),new LinearLayout.LayoutParams(0,-2,1));
+        bottom.addView(btn("Dictate",()->dictate()),new LinearLayout.LayoutParams(0,-2,1));
         bottom.addView(btn("View photo",()->viewPhoto()),new LinearLayout.LayoutParams(0,-2,1));
         root.addView(bottom);
         setContentView(root);
@@ -167,7 +167,7 @@ public final class MainActivity extends Activity {
         }
     }
     private void render(){
-        info.setText("Sheet "+(page+1)+" â€¢ "+items.size()+" observations â€¢ Plan pins optional");
+        info.setText("Sheet "+(page+1)+" | "+items.size()+" observations");
         if(counterLabel!=null)counterLabel.setText(Integer.toString(counter));
         if(planView!=null)planView.invalidate();
     }
