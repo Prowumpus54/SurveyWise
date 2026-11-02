@@ -52,6 +52,11 @@ public final class MainActivity extends Activity {
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setPadding(12,12,12,12);
+        root.setOnApplyWindowInsetsListener((v,insets)->{
+            android.graphics.Insets bars=insets.getInsets(WindowInsets.Type.systemBars());
+            v.setPadding(12+bars.left,12+bars.top,12+bars.right,12+bars.bottom);
+            return insets;
+        });
         EditText title = new EditText(this);
         title.setSingleLine(true);
         title.setHint("Survey project");
@@ -64,20 +69,21 @@ public final class MainActivity extends Activity {
         root.addView(title);
         LinearLayout controls = new LinearLayout(this);
         Button load=btn("Open plan", ()->pickPlan());
-        Button prev=btn("◀", ()->{if(page>0){page--;render();}});
-        Button next=btn("▶", ()->{page++;render();});
-        Button photo=btn("📷 Photo", ()->capture());
+        Button prev=btn("â—€", ()->{if(page>0){page--;render();}});
+        Button next=btn("â–¶", ()->{page++;render();});
+        Button photo=btn("ðŸ“· Photo", ()->capture());
         controls.addView(load,new LinearLayout.LayoutParams(0,-2,2));
         controls.addView(prev,new LinearLayout.LayoutParams(0,-2,1));
         controls.addView(next,new LinearLayout.LayoutParams(0,-2,1));
         controls.addView(photo,new LinearLayout.LayoutParams(0,-2,2));
         root.addView(controls);
-        LinearLayout countRow = new LinearLayout(this);
         counterLabel = new TextView(this);
-        counterLabel.setTextSize(24);
-        countRow.addView(counterLabel,new LinearLayout.LayoutParams(0,-2,1));
-        countRow.addView(btn("Reset",()->{counter=0;save();render();}));
-        root.addView(countRow);
+        counterLabel.setTextSize(38);
+        counterLabel.setTextColor(Color.rgb(211,45,45));
+        counterLabel.setGravity(Gravity.CENTER);
+        counterLabel.setContentDescription("Survey counter. Volume up increases, volume down decreases. Long press to reset.");
+        counterLabel.setOnLongClickListener(v->{counter=0;save();render();toast("Counter reset");return true;});
+        root.addView(counterLabel,new LinearLayout.LayoutParams(-1,-2));
         info = new TextView(this);
         root.addView(info);
         planView=new PlanView();
@@ -85,10 +91,16 @@ public final class MainActivity extends Activity {
         note = new EditText(this);
         note.setMinLines(2);
         note.setHint("Take a photo and dictate a note; plan pin is optional");
+        note.addTextChangedListener(new android.text.TextWatcher() {
+            public void beforeTextChanged(CharSequence s,int start,int count,int after){}
+            public void onTextChanged(CharSequence s,int start,int before,int count){
+                if(selected!=null){selected.note=s.toString();save();}
+            }
+            public void afterTextChanged(android.text.Editable e){}
+        });
         root.addView(note);
         LinearLayout bottom=new LinearLayout(this);
-        bottom.addView(btn("🎙 Dictate",()->dictate()),new LinearLayout.LayoutParams(0,-2,1));
-        bottom.addView(btn("Save note",()->saveNote()),new LinearLayout.LayoutParams(0,-2,1));
+        bottom.addView(btn("ðŸŽ™ Dictate",()->dictate()),new LinearLayout.LayoutParams(0,-2,1));
         bottom.addView(btn("View photo",()->viewPhoto()),new LinearLayout.LayoutParams(0,-2,1));
         root.addView(bottom);
         setContentView(root);
@@ -118,16 +130,14 @@ public final class MainActivity extends Activity {
         catch(Exception ex){getContentResolver().delete(pendingPhoto,null,null);pendingPhoto=null;toast("Camera not available");}
     }
     private void dictate(){
-        if(selected==null){toast("Select a pin first");return;}
+        if(selected==null){
+            Observation o=new Observation();o.page=-1;items.add(o);select(o);save();
+        }
         Intent i=new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
         i.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
         i.putExtra(RecognizerIntent.EXTRA_PROMPT,"Describe your observation");
         i.putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE,true);
         try{startActivityForResult(i,SPEECH);}catch(Exception ex){toast("Speech recognition unavailable; type a note");}
-    }
-    private void saveNote(){
-        if(selected==null){toast("Select a pin first");return;}
-        selected.note=note.getText().toString();save();toast("Observation saved");
     }
     private void viewPhoto(){
         if(selected==null||selected.image.isEmpty()){toast("No photo linked to this pin");return;}
@@ -157,8 +167,8 @@ public final class MainActivity extends Activity {
         }
     }
     private void render(){
-        info.setText("Sheet "+(page+1)+" • "+items.size()+" observations • Plan pins optional");
-        if(counterLabel!=null)counterLabel.setText("Count: "+counter+"   (Volume +/-)");
+        info.setText("Sheet "+(page+1)+" â€¢ "+items.size()+" observations â€¢ Plan pins optional");
+        if(counterLabel!=null)counterLabel.setText(Integer.toString(counter));
         if(planView!=null)planView.invalidate();
     }
     private void select(Observation o){selected=o;note.setText(o.note);render();}
@@ -200,6 +210,7 @@ public final class MainActivity extends Activity {
         if(keyCode==android.view.KeyEvent.KEYCODE_VOLUME_UP || keyCode==android.view.KeyEvent.KEYCODE_VOLUME_DOWN)return true;
         return super.onKeyUp(keyCode,event);
     }
+    @Override protected void onPause(){super.onPause();save();}
     private void toast(String s){Toast.makeText(this,s,Toast.LENGTH_SHORT).show();}
 
     private final class PlanView extends View {
