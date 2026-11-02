@@ -32,6 +32,8 @@ public final class MainActivity extends Activity {
     private Observation selected;
     private String project = "New Survey";
     private int page = 0;
+    private int counter = 0;
+    private TextView counterLabel;
 
     static final class Observation {
         int page;
@@ -70,13 +72,19 @@ public final class MainActivity extends Activity {
         controls.addView(next,new LinearLayout.LayoutParams(0,-2,1));
         controls.addView(photo,new LinearLayout.LayoutParams(0,-2,2));
         root.addView(controls);
+        LinearLayout countRow = new LinearLayout(this);
+        counterLabel = new TextView(this);
+        counterLabel.setTextSize(24);
+        countRow.addView(counterLabel,new LinearLayout.LayoutParams(0,-2,1));
+        countRow.addView(btn("Reset",()->{counter=0;save();render();}));
+        root.addView(countRow);
         info = new TextView(this);
         root.addView(info);
         planView=new PlanView();
         root.addView(planView,new LinearLayout.LayoutParams(-1,0,1));
         note = new EditText(this);
         note.setMinLines(2);
-        note.setHint("Tap plan to place a pin, then take a photo and dictate a note");
+        note.setHint("Take a photo and dictate a note; plan pin is optional");
         root.addView(note);
         LinearLayout bottom=new LinearLayout(this);
         bottom.addView(btn("🎙 Dictate",()->dictate()),new LinearLayout.LayoutParams(0,-2,1));
@@ -94,7 +102,9 @@ public final class MainActivity extends Activity {
         startActivityForResult(i,PICK_PLAN);
     }
     private void capture(){
-        if(selected==null){toast("Tap the plan to place a pin first");return;}
+        if(selected==null || !selected.image.isEmpty()){
+            Observation o=new Observation();o.page=-1;items.add(o);select(o);save();
+        }
         android.content.ContentValues v=new android.content.ContentValues();
         v.put(MediaStore.Images.Media.DISPLAY_NAME,"surveywise_"+System.currentTimeMillis()+".jpg");
         v.put(MediaStore.Images.Media.MIME_TYPE,"image/jpeg");
@@ -147,14 +157,15 @@ public final class MainActivity extends Activity {
         }
     }
     private void render(){
-        info.setText("Sheet "+(page+1)+" • "+items.size()+" observations • Tap drawing to place pin");
+        info.setText("Sheet "+(page+1)+" • "+items.size()+" observations • Plan pins optional");
+        if(counterLabel!=null)counterLabel.setText("Count: "+counter+"   (Volume +/-)");
         if(planView!=null)planView.invalidate();
     }
     private void select(Observation o){selected=o;note.setText(o.note);render();}
     private File stateFile(){return new File(getFilesDir(),"survey.json");}
     private void save(){
         try{
-            JSONObject data=new JSONObject();data.put("project",project);data.put("plan",planUri==null?"":planUri.toString());
+            JSONObject data=new JSONObject();data.put("project",project);data.put("counter",counter);data.put("plan",planUri==null?"":planUri.toString());
             JSONArray a=new JSONArray();
             for(Observation o:items){JSONObject row=new JSONObject();row.put("page",o.page);row.put("x",o.x);row.put("y",o.y);row.put("image",o.image);row.put("note",o.note);a.put(row);}
             data.put("items",a);
@@ -169,11 +180,25 @@ public final class MainActivity extends Activity {
             byte[] bytes=new byte[(int)f.length()];
             try(FileInputStream in=new FileInputStream(f)){int off=0,n;while(off<bytes.length&&(n=in.read(bytes,off,bytes.length-off))!=-1)off+=n;}
             JSONObject data=new JSONObject(new String(bytes,java.nio.charset.StandardCharsets.UTF_8));
-            project=data.optString("project","New Survey");
+            project=data.optString("project","New Survey");counter=data.optInt("counter",0);
             String uri=data.optString("plan");if(!uri.isEmpty())planUri=Uri.parse(uri);
             JSONArray a=data.optJSONArray("items");
             if(a!=null)for(int j=0;j<a.length();j++){JSONObject r=a.getJSONObject(j);Observation o=new Observation();o.page=r.optInt("page");o.x=(float)r.optDouble("x");o.y=(float)r.optDouble("y");o.image=r.optString("image");o.note=r.optString("note");items.add(o);}
         }catch(Exception e){android.util.Log.e("SurveyWise","Restore failed",e);}
+    }
+    @Override public boolean onKeyDown(int keyCode, android.view.KeyEvent event) {
+        if(keyCode==android.view.KeyEvent.KEYCODE_VOLUME_UP || keyCode==android.view.KeyEvent.KEYCODE_VOLUME_DOWN){
+            if(event.getRepeatCount()==0){
+                counter += keyCode==android.view.KeyEvent.KEYCODE_VOLUME_UP ? 1 : -1;
+                save();render();
+            }
+            return true;
+        }
+        return super.onKeyDown(keyCode,event);
+    }
+    @Override public boolean onKeyUp(int keyCode, android.view.KeyEvent event) {
+        if(keyCode==android.view.KeyEvent.KEYCODE_VOLUME_UP || keyCode==android.view.KeyEvent.KEYCODE_VOLUME_DOWN)return true;
+        return super.onKeyUp(keyCode,event);
     }
     private void toast(String s){Toast.makeText(this,s,Toast.LENGTH_SHORT).show();}
 
