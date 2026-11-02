@@ -2,7 +2,7 @@ plugins { id 'com.android.application' }
 
 android {
     namespace 'com.surveywise.app'
-    compileSdk 35
+    compileSdk 36
     defaultConfig {
         applicationId 'com.surveywise.app'
         minSdk 29
